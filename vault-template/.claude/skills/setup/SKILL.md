@@ -33,6 +33,29 @@ For steps 1, 2, and 4 the question craft — one-question rhythm, persona contra
 the idea bank — lives in the `interview` skill: run those through it rather than
 re-deriving the questions here.
 
+**0. The channel.** They're already texting, so one channel works. What's undecided
+is whether they want the other one on top, and that answer costs real setup, so it
+comes before anything gets written to the vault. Ask it as one question, then act on
+whichever case they're in:
+
+- **On Telegram, not on a Mac.** iMessage, FaceTime and Find My are macOS-only. Say
+  it once, don't sell it, move to step 1.
+- **On Telegram, on a Mac.** Offer iMessage and price it honestly. Tier 0 is
+  `brew install steipete/tap/imsg` plus Full Disk Access, and it costs a dedicated
+  Apple ID and phone number for the agent. Tiers 1 and 2 need SIP disabled, which is
+  a real reduction in the machine's security posture and belongs only on a machine
+  whose whole job is being this agent. `npm run doctor` reports the current tier and
+  what the next one needs: walk one tier at a time and prove each one works before
+  starting the next.
+- **On iMessage.** Offer Telegram as a second channel anyway. It's a bot token and
+  nothing else, it has no Apple dependency, and it's the way back in when the Mac
+  goes deaf — an OS update breaking the injection, iCloud signing itself out.
+  `TRANSPORT` takes a comma-separated list and the agent loop is identical across
+  channels, so running both costs nothing and removes a single point of failure.
+
+Never run the Apple setup silently. Every step of it needs their hands on the
+machine, so the job here is walking them through it, not doing it.
+
 **1. Who they are.** Enough for the agent to be useful on turn one: name, where they
 live, what they're doing with their days right now, who's around them. Goes in the
 always-loaded owner file. Keep it short — it's paid for on every single turn, and
