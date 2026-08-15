@@ -1,5 +1,11 @@
 # CLAUDE.md — conventions for agents working in this repo
 
+> **Installing rather than working on the code?** If there's no `.env` and no vault at
+> `../brain` — the state `npm run doctor` reports as failing essentials — stop and read
+> `docs/install.md`, then drive that. Everything below assumes an installed instance
+> with an owner who already has one, and the off-limits rules exist to protect a live
+> setup; `docs/install.md` says which of them don't apply yet.
+
 `CLAUDE.md` is the exact filename Claude looks for; `AGENTS.md` is the same file
 symlinked for Codex. Both engines therefore read THIS document, and it is loaded on
 every run in this repo — so it holds only what is true on any random task.
@@ -20,13 +26,6 @@ Read `context.md` before arguing about design: it's the glossary (turn, session,
 transport, lane, child, hold) and it exists so a discussion is about the real decision
 rather than the terms. `README.md` is the map of where things live. `docs/` covers
 individual subsystems.
-
-**If the human is installing this rather than working on the code** — fresh clone, no
-`.env`, no vault, nothing running — that's a different job with different rules. Read
-`docs/install.md` and drive that rather than inferring steps from `README.md`. The rest
-of this file assumes an installed instance with an owner who already has one, and the
-off-limits rules below are written to protect a live setup; `docs/install.md` says which
-of them don't apply during an install.
 
 ## Commands
 
