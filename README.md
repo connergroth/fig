@@ -64,11 +64,12 @@ Pure TypeScript, one daemon, entry point `src/index.ts`:
   agents run on a job board and owe a report when they finish. Codex ships as a
   second delegate for independent review (`CODEX_ENABLED`, `CODEX_MODEL`).
 - **Transport** (`src/transport/`): the daemon talks to a `Transport`
-  interface, never to a channel. iMessage is primary: it watches chat.db for
-  inbound, sends through Messages, and keeps an APNS keepalive so a headless Mac
-  doesn't go deaf. Telegram ships as a backup channel with no iCloud dependency.
-  `TRANSPORT` is a comma-separated list, and the agent loop is identical across
-  all of them.
+  interface, never to a channel. iMessage is the one this was built for: it
+  watches chat.db for inbound, sends through Messages, and keeps an APNS
+  keepalive so a headless Mac doesn't go deaf. Telegram is a full second channel
+  with no Apple dependency at all, and reactions, typing, photos, files and
+  audio map onto the same primitives. `TRANSPORT` is a comma-separated list, and
+  the agent loop is identical across all of them.
 
 ### The memory (the vault)
 
@@ -126,6 +127,7 @@ next one needs.
 
 | Tier | What works | What it takes |
 | --- | --- | --- |
+| — | everything but the three Apple lanes, over **Telegram** | a bot token from @BotFather. No Apple ID, no second phone number, no Full Disk Access, no SIP change. |
 | 0 | plain iMessage send/receive | `brew install steipete/tap/imsg` + Full Disk Access. No SIP change. |
 | 1 | rich iMessage (tapbacks, effects, typing, read receipts) | SIP disabled + the bridge dylib injected into Messages |
 | 2 | live Find My location feeding context and geofences | the find-my dylib (`tools/findmy/build.sh` compiles it), riding tier 1's injection, with `FINDMY_DYLIB` pointing at the built file |
@@ -139,31 +141,44 @@ you work on. Tier 0 and tier 3 don't touch SIP.
 
 ## Requirements
 
-This is a project you run, not a hosted product. You need:
+This is a project you run, not a hosted product. To run it at all you need:
 
-- **A Mac that stays on.** The daemon is local; there is no cloud half.
-- **A dedicated phone number and Apple ID for the agent.** It sends and receives
-  as itself, not as you.
+- **A machine that stays on.** The daemon is local; there is no cloud half.
 - **A Claude subscription (or ChatGPT, for Codex).** The main agent runs on the
   Claude Agent SDK, authenticated with a Claude Code OAuth token
   (`claude setup-token`), or on OpenAI's Codex CLI, switchable at runtime with
   `/model`. Either way messages ride your plan instead of a metered API key.
+- **A channel.** Either a Telegram bot token, which costs nothing and takes two
+  minutes, or the iMessage setup below.
+
+The iMessage, FaceTime and Find My lanes additionally need **a Mac** and **a
+dedicated phone number and Apple ID for the agent**, so it sends and receives as
+itself rather than as you. That is the version this was built for, and it's a
+real afternoon of setup. It is not the version you should start with.
 
 ## Getting started
+
+Start on Telegram. It's the same agent, the same vault, the same loop, and it
+runs in about five minutes:
 
 ```bash
 git clone <repo> && cd fig
 npm install
-cp .env.example .env        # fill in OWNER_NUMBERS, OWNER_NAME, and your token
 cp -R vault-template ../brain && git -C ../brain init
-npm run doctor              # what tier is this machine at, and what's missing
-npm start
+cp .env.example .env
+# in .env: OWNER_NAME, your Claude token, TRANSPORT=telegram,
+#          and TELEGRAM_BOT_TOKEN from @BotFather
+npm start                   # text the bot once, then paste the chat id it logs
+                            # into TELEGRAM_OWNER_CHAT_ID and restart
 ```
 
-Then text it. The `setup` skill walks the machine setup tier by tier, and the
-`interview` skill fills the empty vault from a conversation: who you are, how it
-should talk, and the first two or three skills worth having. The vault ships
-empty on purpose. It gets built with you, not for you.
+Then text it. The `interview` skill fills the empty vault from a conversation:
+who you are, how it should talk, and the first two or three skills worth having.
+The vault ships empty on purpose. It gets built with you, not for you.
+
+Move to iMessage when you want the Apple lanes. `npm run doctor` reports what
+tier the machine is at and what the next one needs, the `setup` skill walks it
+tier by tier, and adding `imsg` to `TRANSPORT` is the only code-side change.
 
 `npm test` and `npm run typecheck` are the repo's own bar.
 
