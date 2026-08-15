@@ -8,12 +8,17 @@ const CHUNK_DELAY_FLOOR_MS = 1200;
 const CHUNK_DELAY_CAP_MS = 2800;
 
 /**
- * Safety net: strip markdown and em-dashes before sending, so even if the model
- * slips past the no-markdown / no-em-dash rules the user never sees them. Kept
- * conservative — it won't touch URLs or normal underscores.
+ * Safety net: strip markdown before sending. The message surface has no renderer, so
+ * `**bold**` and `[text](url)` arrive as literal characters no matter whose agent this
+ * is — that makes this a fact about the transport, not a style preference, and it always
+ * runs. Kept conservative: it won't touch URLs or normal underscores.
+ *
+ * Anything that is a matter of TASTE (em-dashes, capitalization) is opt-in and lives in
+ * the flagged passes below — an owner whose persona file says nothing about punctuation
+ * should never have their agent's punctuation quietly rewritten in transit.
  */
 export function stripMarkdown(text: string): string {
-  return text
+  const stripped = text
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "").trim()) // fenced code
     .replace(/`([^`]+)`/g, "$1") // inline code
     .replace(/\*\*([^*]+)\*\*/g, "$1") // **bold**
@@ -21,16 +26,27 @@ export function stripMarkdown(text: string): string {
     .replace(/^\s{0,3}#{1,6}\s+/gm, "") // # headings
     .replace(/^(\s{0,3})\*\s+/gm, "$1- ") // normalize "* " bullets to "- " (keep dash lists)
     .replace(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/g, "$1") // ![alt](url) image -> bare url (runs before the link rule so the leading ! never survives)
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$2") // [text](url) -> bare url
-    // em-dash -> hyphen. NEVER match across a newline: `\s` includes \n, so an em-dash at the
-    // end of a line used to swallow the line break and pull the next line (usually the first
-    // bullet of a list) up onto it, rendering "told me - - amazon.com". Horizontal whitespace
-    // only, handled per line position so a leading/trailing dash keeps its own line.
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$2"); // [text](url) -> bare url
+  return hyphenateEmDashes(stripped).trim();
+}
+
+/**
+ * TASTE, opt-in via FIG_HYPHENATE_EMDASH=1: rewrite em-dashes as hyphens. Off by default,
+ * because an em-dash renders fine on every surface — the only reason to remove one is that
+ * a particular owner doesn't want their agent writing them.
+ *
+ * When on, it NEVER matches across a newline: `\s` includes \n, so an em-dash at the end of
+ * a line used to swallow the line break and pull the next line (usually the first bullet of
+ * a list) up onto it, rendering "told me - - amazon.com". Horizontal whitespace only,
+ * handled per line position so a leading/trailing dash keeps its own line.
+ */
+export function hyphenateEmDashes(text: string): string {
+  if (process.env.FIG_HYPHENATE_EMDASH !== "1") return text;
+  return text
     .replace(/^([ \t]*)—[ \t]*/gm, "$1- ") // line-start dash -> bullet, indent preserved
     .replace(/[ \t]*—[ \t]*$/gm, " -") // line-end dash -> trailing lead-in
     .replace(/[ \t]*—[ \t]*/g, " - ") // mid-line
-    .replace(/[ \t]+\n/g, "\n") // tidy any trailing space the swap left
-    .trim();
+    .replace(/[ \t]+\n/g, "\n"); // tidy any trailing space the swap left
 }
 
 /**
@@ -219,11 +235,12 @@ export function proactiveCorrection(contract: ProactiveContract): string {
 }
 
 /**
- * fig writes in lowercase (see SOUL). The model still leaks capitalized sentence-starts —
- * trained narration ("Let me dig into…"), proper nouns, the reflexive "I'll" — which read
- * as not-fig. So mechanically lowercase the first letter of each sentence on the way out,
- * rather than trusting the model to obey the voice rule (same philosophy as muffling its
- * step narration in session.ts).
+ * TASTE, opt-in via FIG_LOWERCASE_STARTS=1: force sentence-starts to lowercase. Only for an
+ * owner whose persona file actually asks for an all-lowercase voice — a model leaks
+ * capitalized sentence-starts from trained narration ("Let me dig into…") no matter what the
+ * prompt says, so for that owner the mechanical pass is more reliable than the instruction
+ * (same philosophy as muffling step narration in session.ts). Off by default: for everyone
+ * else this silently mangles ordinary prose with nothing in their vault explaining why.
  *
  * Sentence start = start of text, the start of any line (incl. a "- "/">" prefix), or
  * after .?!… + whitespace. The lookahead guard only fires when the next char is a
@@ -232,10 +249,7 @@ export function proactiveCorrection(contract: ProactiveContract): string {
  * case. URLs are untouched (their capitals sit mid-token, never at a sentence start).
  */
 export function lowercaseSentenceStarts(text: string): string {
-  // Kill switch (FIG_LOWERCASE_STARTS=0): the model's voice compliance may have
-  // improved enough that this mechanical pass is no longer needed. Flag it off to
-  // watch for real non-compliance in the wild; if none shows up, delete the pass.
-  if (process.env.FIG_LOWERCASE_STARTS === "0") return text;
+  if (process.env.FIG_LOWERCASE_STARTS !== "1") return text;
   return text.replace(
     /((?:^|[\n\r])[ \t>*\-]*|[.?!…]["')\]]?\s+)([A-Z])(?=[a-z'’]|\b)/g,
     (_m, pre: string, cap: string) => pre + cap.toLowerCase(),

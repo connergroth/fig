@@ -1,5 +1,41 @@
 import assert from "node:assert/strict";
-import { parsePoll, splitIntoChunks, stripMarkdown } from "./chunking";
+import { lowercaseSentenceStarts, parsePoll, splitIntoChunks, stripMarkdown } from "./chunking";
+
+/**
+ * Run `fn` with the em-dash pass forced ON. It is opt-in (taste, not a surface fact), so
+ * every test of its MECHANICS has to enable it explicitly — which is also what keeps the
+ * default-off tests below honest.
+ */
+function withEmDashPass(fn: () => void): void {
+  const prev = process.env.FIG_HYPHENATE_EMDASH;
+  process.env.FIG_HYPHENATE_EMDASH = "1";
+  try {
+    fn();
+  } finally {
+    if (prev === undefined) delete process.env.FIG_HYPHENATE_EMDASH;
+    else process.env.FIG_HYPHENATE_EMDASH = prev;
+  }
+}
+
+/**
+ * The two voice passes are TASTE and ship OFF, so a new owner whose SOUL says nothing about
+ * punctuation or capitalization gets their agent's text delivered as written. Markdown
+ * stripping is NOT taste — no renderer on this surface — so it still runs in the same call.
+ */
+function tastePassesAreOffByDefault(): void {
+  delete process.env.FIG_HYPHENATE_EMDASH;
+  delete process.env.FIG_LOWERCASE_STARTS;
+  assert.equal(stripMarkdown("a — b"), "a — b", "em-dash survives when the pass is off");
+  assert.equal(
+    stripMarkdown("**bold** and a — dash"),
+    "bold and a — dash",
+    "markdown still strips with the taste passes off",
+  );
+  assert.equal(lowercaseSentenceStarts("Let me dig in."), "Let me dig in.");
+  process.env.FIG_LOWERCASE_STARTS = "1";
+  assert.equal(lowercaseSentenceStarts("Let me dig in."), "let me dig in.");
+  delete process.env.FIG_LOWERCASE_STARTS;
+}
 
 /**
  * Regression: the em-dash -> hyphen safety net used `\s*—\s*`, and `\s` includes `\n`.
@@ -68,15 +104,18 @@ function malformedPollStaysInline(): void {
 }
 
 function main(): void {
-  emDashNeverEatsNewlines();
-  lineStartDashBecomesBullet();
-  midLineDashStillSwaps();
-  newlineCountIsPreserved();
+  tastePassesAreOffByDefault();
+  withEmDashPass(() => {
+    emDashNeverEatsNewlines();
+    lineStartDashBecomesBullet();
+    midLineDashStillSwaps();
+    newlineCountIsPreserved();
+  });
   inlinePollTokenGetsItsOwnChunk();
   prosePollProseKeepsAllThree();
   alreadyIsolatedPollIsUnchanged();
   malformedPollStaysInline();
-  console.log("chunking.test.ts: 8 passed");
+  console.log("chunking.test.ts: 9 passed");
 }
 
 main();

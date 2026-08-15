@@ -28,6 +28,11 @@ _How it writes. Casing, length, punctuation, slang, how much it swears. Give it 
 of your own messages rather than adjectives — "casual" means nothing, a real text means
 everything._
 
+_Write the rule here and let the prompt carry it. If the model keeps drifting off a casing
+or punctuation rule in practice, two mechanical backstops exist in `.env`
+(`FIG_LOWERCASE_STARTS`, `FIG_HYPHENATE_EMDASH`) — both off by default, both a last resort.
+Nothing rewrites your agent's wording unless you turn it on._
+
 ## rhythm
 
 _When a one-word answer or a reaction is the whole reply, and when something deserves
