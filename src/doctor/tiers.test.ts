@@ -91,4 +91,39 @@ function reports(fail: Record<number, ReturnType<typeof bad>[]> = {}): TierRepor
   assert.deepEqual(j.tiers.map((t: { tier: number }) => t.tier), [0, 1, 2, 3]);
 }
 
+// Essentials render above the ladder, and a Telegram-only install reads as SET UP
+// even with every Apple tier failing — the exact report that used to look broken.
+{
+  const r = reports({ 0: [bad("imsg CLI", "brew install imsg")] });
+  const text = formatText(r, evaluate(r), {
+    checks: [
+      { name: "vault", ok: true, detail: "../brain" },
+      { name: "model auth", ok: true, detail: "claude token present" },
+      { name: "a channel", ok: true, detail: "telegram" },
+    ],
+    appleLanesOptional: true,
+  });
+  assert.ok(text.includes("essentials — needed on every install"));
+  assert.ok(text.indexOf("essentials") < text.indexOf("tier 0"));
+  assert.ok(text.includes("the tiers above are optional — you are set up"));
+}
+
+// Same install with an essential missing must NOT claim set up.
+{
+  const r = reports({});
+  const text = formatText(r, evaluate(r), {
+    checks: [{ name: "a channel", ok: false, detail: "TRANSPORT is empty", hint: "set TRANSPORT=telegram" }],
+    appleLanesOptional: true,
+  });
+  assert.ok(text.includes("finish the essentials"));
+  assert.ok(text.includes("→ set TRANSPORT=telegram"));
+}
+
+// With iMessage configured the tiers are the real bar, so no optional line at all.
+{
+  const r = reports({});
+  const text = formatText(r, evaluate(r), { checks: [], appleLanesOptional: false });
+  assert.ok(!text.includes("optional"));
+}
+
 console.log("doctor tiers: all checks passed");

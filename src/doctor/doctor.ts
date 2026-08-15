@@ -11,7 +11,7 @@ import {
   imsgDylib,
   isInjectionHealthy,
 } from "../transport/inject";
-import { type CheckResult, type TierReport, evaluate, formatText, toJson } from "./tiers";
+import { type CheckResult, type Essentials, type TierReport, evaluate, formatText, toJson } from "./tiers";
 
 /**
  * `npm run doctor` — report the machine's capability tier and what the next one
@@ -145,6 +145,77 @@ async function checkBlackhole(): Promise<CheckResult> {
   return { name, ok, detail: seen.length ? `devices: ${seen.join(", ")}` : "no BlackHole devices", hint };
 }
 
+// ── essentials · channel-independent ────────────────────────────────────────
+
+/** .env is read by the daemon at boot; doctor runs standalone, so parse it directly. */
+function envFile(): Record<string, string> {
+  const out: Record<string, string> = {};
+  let raw = "";
+  try {
+    raw = fs.readFileSync(path.join(process.cwd(), ".env"), "utf8");
+  } catch {
+    return out;
+  }
+  for (const line of raw.split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(line);
+    if (m) out[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+  }
+  return out;
+}
+
+function checkVault(env: Record<string, string>): CheckResult {
+  const name = "vault";
+  const dir = env.BRAIN_DIR || path.join(process.cwd(), "..", "brain");
+  const hint = "cp -R vault-template ../brain && git -C ../brain init";
+  // CLAUDE.md is the always-loaded contract, so its absence means this isn't a vault.
+  return fs.existsSync(path.join(dir, "CLAUDE.md"))
+    ? { name, ok: true, detail: dir }
+    : { name, ok: false, detail: `no vault at ${dir}`, hint };
+}
+
+function checkModelAuth(env: Record<string, string>): CheckResult {
+  const name = "model auth";
+  const hint = "claude setup-token, then put the token in .env (or enable Codex)";
+  const claude = Boolean(env.CLAUDE_CODE_OAUTH_TOKEN || env.ANTHROPIC_API_KEY || process.env.CLAUDE_CODE_OAUTH_TOKEN);
+  const codex = /^(1|true|yes)$/i.test(env.CODEX_ENABLED ?? "");
+  if (claude) return { name, ok: true, detail: "claude token present" };
+  if (codex) return { name, ok: true, detail: "codex enabled" };
+  return { name, ok: false, detail: "no claude token and codex is off", hint };
+}
+
+function checkTransportConfigured(env: Record<string, string>): CheckResult {
+  const name = "a channel";
+  const hint = "set TRANSPORT=telegram plus TELEGRAM_BOT_TOKEN (fastest), or TRANSPORT=imsg plus OWNER_NUMBERS";
+  const list = (env.TRANSPORT ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!list.length) return { name, ok: false, detail: "TRANSPORT is empty", hint };
+  const ready: string[] = [];
+  const blocked: string[] = [];
+  for (const t of list) {
+    if (t === "telegram") (env.TELEGRAM_BOT_TOKEN ? ready : blocked).push("telegram (needs TELEGRAM_BOT_TOKEN)");
+    else if (t === "imsg") (env.OWNER_NUMBERS ? ready : blocked).push("imsg (needs OWNER_NUMBERS)");
+    else ready.push(t);
+  }
+  if (!ready.length) return { name, ok: false, detail: `configured but incomplete: ${blocked.join(", ")}`, hint };
+  // The chat id is phase two and only knowable after a first inbound, so it is a
+  // note rather than a failure — the daemon logs it the moment they text the bot.
+  const note =
+    list.includes("telegram") && env.TELEGRAM_BOT_TOKEN && !env.TELEGRAM_OWNER_CHAT_ID
+      ? " (text the bot once, then set TELEGRAM_OWNER_CHAT_ID)"
+      : "";
+  return { name, ok: true, detail: `${ready.map((r) => r.split(" ")[0]).join(", ")}${note}` };
+}
+
+function collectEssentials(): Essentials {
+  const env = envFile();
+  return {
+    checks: [checkVault(env), checkModelAuth(env), checkTransportConfigured(env)],
+    appleLanesOptional: !(env.TRANSPORT ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .some((t) => t === "imsg" || t === "relay"),
+  };
+}
+
 // ── report ──────────────────────────────────────────────────────────────────────
 
 async function collect(): Promise<TierReport[]> {
@@ -163,7 +234,12 @@ async function collect(): Promise<TierReport[]> {
 async function main(): Promise<void> {
   const reports = await collect();
   const verdict = evaluate(reports);
-  console.log(process.argv.includes("--json") ? toJson(reports, verdict) : formatText(reports, verdict));
+  const essentials = collectEssentials();
+  console.log(
+    process.argv.includes("--json")
+      ? toJson(reports, verdict, essentials)
+      : formatText(reports, verdict, essentials),
+  );
 }
 
 void main();

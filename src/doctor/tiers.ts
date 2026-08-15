@@ -21,6 +21,18 @@ export interface TierReport {
   checks: CheckResult[];
 }
 
+/**
+ * The channel-independent half: a vault, model auth, and at least one configured
+ * transport. Reported ABOVE the tier ladder and deliberately outside it, because the
+ * tiers are the iMessage ladder specifically — a Telegram install is fully healthy
+ * with every tier failing, and a report that can't say so reads as "broken".
+ */
+export interface Essentials {
+  checks: CheckResult[];
+  /** True when no iMessage transport is configured, which makes the tiers optional. */
+  appleLanesOptional: boolean;
+}
+
 export interface Verdict {
   /** Highest fully-passing tier, -1 when even tier 0 is incomplete. */
   tier: number;
@@ -50,8 +62,16 @@ export function evaluate(reports: TierReport[]): Verdict {
   return { tier, next, missing: next ? next.checks.filter((c) => !c.ok) : [] };
 }
 
-export function formatText(reports: TierReport[], verdict: Verdict): string {
+export function formatText(reports: TierReport[], verdict: Verdict, essentials?: Essentials): string {
   const lines: string[] = [];
+  if (essentials) {
+    lines.push("essentials — needed on every install");
+    for (const c of essentials.checks) {
+      lines.push(`  ${c.ok ? "\u2713" : "\u2717"} ${c.name}${c.detail ? ` \u2014 ${c.detail}` : ""}`);
+      if (!c.ok && c.hint) lines.push(`      \u2192 ${c.hint}`);
+    }
+    lines.push("");
+  }
   for (const t of [...reports].sort((a, b) => a.tier - b.tier)) {
     lines.push(`tier ${t.tier} — ${t.label}`);
     for (const c of t.checks) {
@@ -60,6 +80,15 @@ export function formatText(reports: TierReport[], verdict: Verdict): string {
     }
   }
   lines.push("");
+  if (essentials?.appleLanesOptional) {
+    const ready = essentials.checks.every((c) => c.ok);
+    lines.push(
+      ready
+        ? "no iMessage transport configured, so the tiers above are optional — you are set up"
+        : "no iMessage transport configured, so the tiers above are optional — finish the essentials",
+    );
+    lines.push("");
+  }
   lines.push(verdict.tier < 0 ? "you are not at tier 0 yet" : `you are at tier ${verdict.tier}`);
   if (verdict.next) {
     const todo = verdict.missing.map((c) => (c.hint ? `${c.name} (${c.hint})` : c.name));
@@ -69,10 +98,11 @@ export function formatText(reports: TierReport[], verdict: Verdict): string {
 }
 
 /** Machine shape for --json: the raw reports plus the verdict, nothing rendered. */
-export function toJson(reports: TierReport[], verdict: Verdict): string {
+export function toJson(reports: TierReport[], verdict: Verdict, essentials?: Essentials): string {
   return JSON.stringify(
     {
       tier: verdict.tier,
+      ...(essentials ? { essentials } : {}),
       toReachNext: verdict.next
         ? { tier: verdict.next.tier, missing: verdict.missing }
         : null,

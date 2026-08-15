@@ -21,6 +21,13 @@ transport, lane, child, hold) and it exists so a discussion is about the real de
 rather than the terms. `README.md` is the map of where things live. `docs/` covers
 individual subsystems.
 
+**If the human is installing this rather than working on the code** — fresh clone, no
+`.env`, no vault, nothing running — that's a different job with different rules. Read
+`docs/install.md` and drive that rather than inferring steps from `README.md`. The rest
+of this file assumes an installed instance with an owner who already has one, and the
+off-limits rules below are written to protect a live setup; `docs/install.md` says which
+of them don't apply during an install.
+
 ## Commands
 
 ```
