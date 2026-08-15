@@ -16,7 +16,6 @@ import {
   extractEffect,
   isImageUrl,
   isLocalFilePath,
-  lowercaseSentenceStarts,
   naturalChunkDelayMs,
   parsePoll,
   sleep,
@@ -232,11 +231,11 @@ async function buildChunks(raw: string): Promise<string[]> {
   //   [[poll: q | opt | opt]]  → a native Messages poll (kept verbatim; delivery fires it)
   const TOKEN = /\[\[(?:draft:(?<acct>[^:\]]+):(?<id>[^\]]+)|poll:(?<poll>[^\]]*))\]\]/gi;
   if (!TOKEN.test(raw)) {
-    const full = lowercaseSentenceStarts(stripMarkdown(raw)).trim();
+    const full = stripMarkdown(raw).trim();
     return full ? splitIntoChunks(full) : [];
   }
   const prose = (s: string): string[] => {
-    const f = lowercaseSentenceStarts(stripMarkdown(s)).trim();
+    const f = stripMarkdown(s).trim();
     return f ? splitIntoChunks(f) : [];
   };
   TOKEN.lastIndex = 0;

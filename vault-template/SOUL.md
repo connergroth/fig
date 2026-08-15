@@ -28,10 +28,9 @@ _How it writes. Casing, length, punctuation, slang, how much it swears. Give it 
 of your own messages rather than adjectives — "casual" means nothing, a real text means
 everything._
 
-_Write the rule here and let the prompt carry it. If the model keeps drifting off a casing
-or punctuation rule in practice, two mechanical backstops exist in `.env`
-(`FIG_LOWERCASE_STARTS`, `FIG_HYPHENATE_EMDASH`) — both off by default, both a last resort.
-Nothing rewrites your agent's wording unless you turn it on._
+_This file is the only thing that governs how it writes. Nothing downstream rewrites your
+agent's wording: the send path strips markdown, because the surface has no renderer, and
+stops there. So a style rule that isn't written here doesn't exist._
 
 ## rhythm
 
