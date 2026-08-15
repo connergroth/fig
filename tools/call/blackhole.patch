@@ -1,0 +1,180 @@
+diff --git a/BlackHole/BlackHole.c b/BlackHole/BlackHole.c
+index ac516ef..1a783d0 100644
+--- a/BlackHole/BlackHole.c
++++ b/BlackHole/BlackHole.c
+@@ -169,7 +169,11 @@ struct ObjectInfo {
+ #define                             kDriver_Name_Format                 "%ich"
+ #define                             kBox_UID                            kDriver_Name kDriver_Name_Format "_UID"
+ #define                             kDevice_UID                         kDriver_Name kDriver_Name_Format "_UID"
+-#define                             kDevice2_UID                        kDriver_Name kDriver_Name_Format "_2_UID"
++// fig g3 AEC-bypass: device B (the inject device) gets a distinct, stable UID.
++// "%ich" expands to the channel count -> "BlackHoleInject2ch_UID". Device A's
++// UID/name are left EXACTLY as stock ("BlackHole2ch_UID" / "BlackHole 2ch") so
++// it stays the mini's default input and FaceTime keeps using it with zero reconfig.
++#define                             kDevice2_UID                        "BlackHoleInject" kDriver_Name_Format "_UID"
+ #define                             kDevice_ModelUID                    kDriver_Name kDriver_Name_Format "_ModelUID"
+ 
+ 
+@@ -178,7 +182,9 @@ struct ObjectInfo {
+ #endif
+ 
+ #ifndef kDevice2_Name
+-#define                             kDevice2_Name                       kDriver_Name " %ich 2"
++// fig g3 AEC-bypass: name device B distinctly so it's obvious in Audio MIDI Setup.
++// "%ich" -> channel count => "BlackHole Inject 2ch".
++#define                             kDevice2_Name                       kDriver_Name " Inject %ich"
+ #endif
+ 
+ 
+@@ -204,7 +210,10 @@ struct ObjectInfo {
+ #endif
+ 
+ #ifndef kDevice2_IsHidden
+-#define                             kDevice2_IsHidden                   true
++// fig g3 AEC-bypass: device B must be VISIBLE so tools (bhplay) can enumerate it
++// by UID and target it. Hidden HAL devices are excluded from the standard device
++// list, which would make the inject device untargetable. (Stock default = true.)
++#define                             kDevice2_IsHidden                   false
+ #endif
+ 
+ 
+@@ -335,7 +344,16 @@ static const UInt32                 kDevice_SampleRatesSize             = sizeof
+ #define                             kBytes_Per_Channel                  (kBits_Per_Channel/ 8)
+ #define                             kBytes_Per_Frame                    (kNumber_Of_Channels * kBytes_Per_Channel)
+ #define                             kRing_Buffer_Frame_Size             ((65536 + kLatency_Frame_Size))
++// fig g3 AEC-bypass cross-feed rings.
++//   gRingBuffer   = Device A's OUTPUT ring. This is what FaceTime's voice-processing
++//                   aggregate reads as its ECHO REFERENCE. Nothing routes into A's
++//                   input from here, so it stays SILENT unless something explicitly
++//                   plays to Device A's output -> AEC sees a silent reference.
++//   gRingBuffer_B = Device B's OUTPUT ring, cross-fed to Device A's INPUT (the mic).
++//                   fig plays voice into Device B's output; it surfaces on A's mic
++//                   stream with NO matching echo reference, so AEC passes it untouched.
+ static Float32*                     gRingBuffer = NULL;
++static Float32*                     gRingBuffer_B = NULL;
+ 
+ 
+ //==================================================================================================
+@@ -4340,6 +4358,8 @@ static OSStatus	BlackHole_StartIO(AudioServerPlugInDriverRef inDriver, AudioObje
+         gDevice_AnchorHostTime = mach_absolute_time();
+         gDevice_PreviousTicks = 0;
+         gRingBuffer = calloc(kRing_Buffer_Frame_Size * kNumber_Of_Channels, sizeof(Float32));
++        // fig g3: allocate the cross-feed (inject) ring alongside the main ring.
++        gRingBuffer_B = calloc(kRing_Buffer_Frame_Size * kNumber_Of_Channels, sizeof(Float32));
+     }
+     
+     
+@@ -4378,6 +4398,9 @@ static OSStatus	BlackHole_StopIO(AudioServerPlugInDriverRef inDriver, AudioObjec
+     {
+         free(gRingBuffer);
+         gRingBuffer = NULL;
++        // fig g3: free the cross-feed ring in lockstep with the main ring.
++        free(gRingBuffer_B);
++        gRingBuffer_B = NULL;
+     }
+ 	
+ 	//	unlock the state lock
+@@ -4517,9 +4540,10 @@ Done:
+ 
+ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, AudioObjectID inDeviceObjectID, AudioObjectID inStreamObjectID, UInt32 inClientID, UInt32 inOperationID, UInt32 inIOBufferFrameSize, const AudioServerPlugInIOCycleInfo* inIOCycleInfo, void* ioMainBuffer, void* ioSecondaryBuffer)
+ {
+-	//	This is called to actually perform a given operation. 
+-	
+-	#pragma unused(inClientID, inIOCycleInfo, ioSecondaryBuffer, inDeviceObjectID)
++	//	This is called to actually perform a given operation.
++
++	//	fig g3: inDeviceObjectID is now USED to route the AEC-bypass cross-feed.
++	#pragma unused(inClientID, inIOCycleInfo, ioSecondaryBuffer)
+ 	
+ 	//	declare the local variables
+ 	OSStatus theAnswer = 0;
+@@ -4547,7 +4571,29 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
+     // Keep track of last outputSampleTime and the cleared buffer status.
+     static Float64 lastOutputSampleTime = 0;
+     static Boolean isBufferClear = true;
+-    
++
++    // ---- fig g3 AEC-bypass cross-feed routing --------------------------------
++    // Stock BlackHole reads and writes ONE shared ring, so anything played to a
++    // device's output instantly mirrors onto its input. FaceTime's voice-
++    // processing aggregate uses BlackHole (Device A) as BOTH the mic AND the echo
++    // reference, so injected audio appears identically on the reference and the
++    // mic and AEC cancels it to silence (measured -1 dB -> -60 dB, RESULTS.md).
++    //
++    // Split into two rings and cross-feed:
++    //   - readRing  (what a device's INPUT/mic stream returns):
++    //       Device A input  <- gRingBuffer_B  (fig's injected voice from B's output)
++    //       Device B input  <- gRingBuffer_B  (B is self-consistent; hidden-ish helper)
++    //   - writeRing (where a device's OUTPUT stream lands):
++    //       Device A output -> gRingBuffer    (the ECHO REFERENCE; stays silent
++    //                                          unless something plays to A directly)
++    //       Device B output -> gRingBuffer_B  (fig's mouth target -> reaches A's mic)
++    // Net effect on a call: fig plays into Device B; the voice reaches FaceTime's
++    // mic via A's input, while A's output (the echo reference) is empty, so AEC has
++    // nothing to subtract and the voice survives.
++    Float32* readRing  = gRingBuffer_B;
++    Float32* writeRing = (inDeviceObjectID == kObjectID_Device) ? gRingBuffer : gRingBuffer_B;
++    // --------------------------------------------------------------------------
++
+     // From BlackHole to Application
+     if(inOperationID == kAudioServerPlugInIOOperationReadInput)
+     {
+@@ -4556,20 +4602,20 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
+         {
+             // Clear the ioMainBuffer
+             vDSP_vclr(ioMainBuffer, 1, inIOBufferFrameSize * kNumber_Of_Channels);
+-            
++
+             // Clear the ring buffer.
+             if (!isBufferClear)
+             {
+-                vDSP_vclr(gRingBuffer, 1, kRing_Buffer_Frame_Size * kNumber_Of_Channels);
++                vDSP_vclr(readRing, 1, kRing_Buffer_Frame_Size * kNumber_Of_Channels);
+                 isBufferClear = true;
+             }
+         }
+         else
+         {
+             // Copy the buffers.
+-            memcpy(ioMainBuffer, gRingBuffer + ringBufferFrameLocationStart * kNumber_Of_Channels, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
+-            memcpy((Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, gRingBuffer, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
+-            
++            memcpy(ioMainBuffer, readRing + ringBufferFrameLocationStart * kNumber_Of_Channels, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
++            memcpy((Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, readRing, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
++
+             // Finally we'll apply the output volume to the buffer.
+ 	    if(kEnableVolumeControl)
+ 	    {
+@@ -4578,11 +4624,11 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
+ 
+         }
+     }
+-    
++
+     // From Application to BlackHole
+     if(inOperationID == kAudioServerPlugInIOOperationWriteMix)
+     {
+-        
++
+         // Overload error.
+         if (inIOCycleInfo->mCurrentTime.mSampleTime > inIOCycleInfo->mOutputTime.mSampleTime + inIOBufferFrameSize + kLatency_Frame_Size)
+         {
+@@ -4590,12 +4636,12 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
+             return kAudioHardwareUnspecifiedError;
+         }
+         // TODO: Mix into the buffers but we will need to clear the buffers at some point.
+-        // Issue with outputting from mirrored device and main device at the same time. Not currently mixing. 
+-        
+-        // Copy the buffers.
+-        memcpy(gRingBuffer + ringBufferFrameLocationStart * kNumber_Of_Channels, ioMainBuffer, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
+-        memcpy(gRingBuffer, (Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
+-        
++        // Issue with outputting from mirrored device and main device at the same time. Not currently mixing.
++
++        // Copy the buffers. (fig g3: writeRing selects A's ring vs B's inject ring.)
++        memcpy(writeRing + ringBufferFrameLocationStart * kNumber_Of_Channels, ioMainBuffer, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
++        memcpy(writeRing, (Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
++
+         // Save the last output time.
+         lastOutputSampleTime = inIOCycleInfo->mOutputTime.mSampleTime + inIOBufferFrameSize;
+         isBufferClear = false;

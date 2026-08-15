@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Owner-specific tool servers — the registry loads this dir optionally and a public
+# checkout ships without it (see loadPersonalServers in src/tools/registry.ts)
+src/tools/personal/
+
+# Owner-specific lanes wired into the harness (the spot product lane) — loaded through
+# runtime seams that no-op when absent, so a public checkout ships without the dir
+# (see src/spot/lane.ts)
+src/personal/
+
+# Syncthing local markers (machine-local, not source)
+.stfolder/
+.stignore
+tools/call/bin/
+tools/call/child/target/
+tools/findmy/build/
+
+# Owner-mined eval fixtures — every target hashes real private message text against the
+# owner's vault, so they can neither ship nor be synthesized (see scripts/bakeoff/README.md).
+# Mine your own with buildEvalSet.ts.
+scripts/bakeoff/eval-set.json
+scripts/bakeoff/parts/
+scripts/bakeoff/results/

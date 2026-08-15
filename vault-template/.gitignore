@@ -1,0 +1,4 @@
+# The raw message log is the owner's life verbatim — it stays local to the
+# machine and out of any remote this vault ever gets pushed to. The vault's
+# markdown memory is curated; this folder is not.
+System/Conversations/

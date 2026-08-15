@@ -1,0 +1,22 @@
+[package]
+name = "fig-call-child"
+version = "0.1.0"
+edition = "2021"
+description = "The FaceTime call session child (local front-end)"
+license = "UNLICENSED"
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.22"
+cpal = "0.15"
+libc = "0.2"
+regex = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.43", features = ["full"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+

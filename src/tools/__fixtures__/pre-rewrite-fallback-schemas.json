@@ -1,0 +1,393 @@
+{
+  "fetch_url": {
+    "description": "Fetch a URL and return its real content, not a summary. Returns JSON verbatim, article pages as clean markdown, YouTube links as transcripts, and PDFs/images downloaded to a local path.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "the URL to fetch"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "article",
+            "raw",
+            "json"
+          ],
+          "description": "auto by default; article, raw, and json force extraction modes"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "where_is": {
+    "description": "Get someone's current live location via Find My. person defaults to the owner themselves; pass a phone/email for someone sharing location with them.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "person": {
+          "type": "string",
+          "description": "phone/email to locate; omit for the owner themselves"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "watch_arrival": {
+    "description": "Ping the owner when they reach a place. Give the destination as a name or address; when their live location comes within radius_m of it, they get note as a text.",
+    "fallback": "allow",
+    "notes": "File-backed local watch; eventual outbound text is handled by harness.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "place": {
+          "type": "string",
+          "description": "destination name or address"
+        },
+        "note": {
+          "type": "string",
+          "description": "the message to text on arrival"
+        },
+        "radius_m": {
+          "type": "number",
+          "description": "trigger radius in meters (default 150)"
+        }
+      },
+      "required": [
+        "place",
+        "note"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_arrival_watches": {
+    "description": "List active arrival watches.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "cancel_arrival_watch": {
+    "description": "Cancel an arrival watch by id.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "arrival watch id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "set_reminder": {
+    "description": "Set a reminder. when is an absolute ISO datetime. text is the short message the owner should receive when it fires.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "the message to send when it fires"
+        },
+        "when": {
+          "type": "string",
+          "description": "absolute ISO datetime"
+        }
+      },
+      "required": [
+        "text",
+        "when"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "recall_conversations": {
+    "description": "Search the full iMessage history with the owner (every message ever) and get back ranked snippets — not whole messages. This is the ONLY way to search Conversations/ — grepping the folder is blocked by the harness, because a grep there returns entire messages and one common word can blow 60k+ tokens of context. (Reading one specific dated transcript end-to-end is still fine and sometimes right.) Search is HYBRID — keyword matching fused with semantic similarity — so you do NOT have to guess the owner's exact words. Asking in your own phrasing works: 'the guy from apple nyc' finds the message naming them. Plain natural-language questions are fine and often better than keyword soup. \"Quoted phrases\" still match exactly when you do know the wording. Optional: speaker ('sam' or 'fig') to search only one side, since/until as YYYY-MM-DD, limit (default 15, max 50). Results are best-match-first, «guillemets» around a keyword hit. Snippets are windows — if you need the full message, the date+time in each result tells you which line of Conversations/YYYY-MM/YYYY-MM-DD.md to read.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "what you're looking for — a natural-language question or keywords, both work"
+        },
+        "speaker": {
+          "type": "string",
+          "enum": [
+            "sam",
+            "fig"
+          ],
+          "description": "only search one side of the conversation"
+        },
+        "since": {
+          "type": "string",
+          "description": "earliest date, YYYY-MM-DD"
+        },
+        "until": {
+          "type": "string",
+          "description": "latest date, YYYY-MM-DD"
+        },
+        "limit": {
+          "type": "number",
+          "description": "max results, default 15, hard max 50"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_reminders": {
+    "description": "List pending reminders.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "cancel_reminder": {
+    "description": "Cancel a reminder by id.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "reminder id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "schedule_task": {
+    "description": "Schedule a one-off full agent task for a future time. Unlike a reminder, this runs a future agent pass with prompt. when is an absolute ISO datetime.",
+    "fallback": "allow",
+    "notes": "Schedules future harness work; no immediate external action.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "what the future agent pass should do"
+        },
+        "when": {
+          "type": "string",
+          "description": "absolute ISO datetime"
+        },
+        "label": {
+          "type": "string",
+          "description": "short tag for logs"
+        },
+        "maxLateMinutes": {
+          "type": "number",
+          "description": "drop without running if more than this many minutes late (default 60)"
+        }
+      },
+      "required": [
+        "prompt",
+        "when",
+        "label"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_scheduled_tasks": {
+    "description": "List pending one-off scheduled agent tasks.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "cancel_scheduled_task": {
+    "description": "Cancel a scheduled agent task by id.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "scheduled task id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "jobs_list": {
+    "description": "List all async background jobs: running and recently finished.",
+    "fallback": "deny",
+    "notes": "Main-process job registry; stdio fallback runtimes run out-of-process.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "jobs_check": {
+    "description": "Check one background job by id. Finished jobs are marked as seen to avoid duplicate push delivery.",
+    "fallback": "deny",
+    "notes": "Main-process job registry; stdio fallback runtimes run out-of-process.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "job id, e.g. browse-3 or codex-1"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "jobs_cancel": {
+    "description": "Cancel/kill a running background job by id. Does not launch new work.",
+    "fallback": "deny",
+    "notes": "Main-process job registry; stdio fallback runtimes run out-of-process.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "job id to kill"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "agentmail_check_inbox": {
+    "description": "List recent messages in one of fig's AgentMail inboxes. Defaults to fig's persistent address. Returns message_id values for agentmail_read_message.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "inbox address; omit for fig's persistent address"
+        },
+        "limit": {
+          "type": "number",
+          "description": "messages to list, default 10, max 50"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "agentmail_read_message": {
+    "description": "Open one full AgentMail message. Defaults to fig's persistent address when address is omitted.",
+    "fallback": "allow",
+    "notes": null,
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "inbox address; omit for fig's persistent address"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "message_id from agentmail_check_inbox"
+        }
+      },
+      "required": [
+        "message_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "govee_lights": {
+    "description": "Control the owner's Govee lights (their physical smart lights) — turn on/off, set color, brightness, or white temperature, or read their state. Lights: 'Monitor Light Bars' + 'TV Light Bars' and 2x 'Smart LED Bulb'. target is a name substring (e.g. 'bulb', 'tv', 'monitor') or 'all' (default). For action=color, value is a color name / #hex / 'r,g,b'. For action=brightness, value is 1-100. For action=temp, value is Kelvin 2000-9000.",
+    "fallback": "allow",
+    "notes": "controls the owner's own home lights",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off",
+            "color",
+            "brightness",
+            "temp",
+            "state",
+            "list"
+          ],
+          "description": "what to do"
+        },
+        "target": {
+          "type": "string",
+          "description": "light name substring or 'all'; defaults to 'all'"
+        },
+        "value": {
+          "type": "string",
+          "description": "color (name/#hex/'r,g,b') for color; number for brightness (1-100) or temp (Kelvin)"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "web_export": {
+    "description": "Pull the owner's data out of a website via its web-export adapter (a local per-site exporter at ~/GitHub/web-export). source is the adapter name (e.g. 'x-bookmarks', 'canvas'), or 'list' to see which sources exist. maxPages optionally caps how many pages to page through. On success returns the path to the written JSON file; on failure returns the CLI's error text — most commonly a missing one-time session capture that has to be grabbed from a logged-in browser tab before that source can run.",
+    "fallback": "allow",
+    "notes": "Shells out to the local web-export CLI to pull data from a site; some sources need a one-time session capture on disk first.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "adapter name to export (e.g. 'x-bookmarks', 'canvas'), or 'list' to see available sources"
+        },
+        "maxPages": {
+          "type": "number",
+          "description": "optional cap on pages to pull (maps to --max-pages=N); omit to pull everything"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

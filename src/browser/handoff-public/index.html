@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Browser Handoff</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="statusbar" class="statusbar">connecting…</div>
+
+  <div id="stage" class="stage">
+    <img id="frame" class="frame" alt="" draggable="false" />
+    <div id="placeholder" class="placeholder">waiting for the live page…</div>
+  </div>
+
+  <div id="actionbar" class="actionbar">
+    <button id="kbdBtn" class="btn btn-secondary" type="button">⌨ Keyboard</button>
+    <button id="doneBtn" class="btn btn-primary" type="button">Done</button>
+  </div>
+
+  <!-- visually-hidden input used purely to summon the mobile soft keyboard -->
+  <input
+    id="kbdInput"
+    class="kbd-input"
+    type="text"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+    aria-hidden="true"
+    tabindex="-1"
+  />
+
+  <div id="overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <div id="overlayTitle" class="overlay-title">session ended</div>
+      <div id="overlaySub" class="overlay-sub">you can close this page.</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
