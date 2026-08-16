@@ -127,7 +127,7 @@ next one needs.
 
 | Tier | What works | What it takes |
 | --- | --- | --- |
-| — | everything but the three Apple lanes, over **Telegram** | a bot token from @BotFather. No Apple ID, no second phone number, no Full Disk Access, no SIP change. |
+| — | everything but the three Apple lanes, over **Telegram** | a bot token from @BotFather. No Apple Account, no Full Disk Access, no SIP change. |
 | 0 | plain iMessage send/receive | `brew install steipete/tap/imsg` + Full Disk Access. No SIP change. |
 | 1 | rich iMessage (tapbacks, effects, typing, read receipts) | SIP disabled + the bridge dylib injected into Messages |
 | 2 | live Find My location feeding context and geofences | the find-my dylib (`tools/findmy/build.sh` compiles it), riding tier 1's injection, with `FINDMY_DYLIB` pointing at the built file |
@@ -152,9 +152,13 @@ This is a project you run, not a hosted product. To run it at all you need:
   minutes, or the iMessage setup below.
 
 The iMessage, FaceTime and Find My lanes additionally need **a Mac** and **a
-dedicated phone number and Apple ID for the agent**, so it sends and receives as
-itself rather than as you. That is the version this was built for, and it's a
-real afternoon of setup. It is not the version you should start with.
+dedicated Apple Account for the agent**, so it sends and receives as itself
+rather than as you. That account does **not** need a phone line of its own:
+iMessage registers its email address as a handle, and a number you already own
+can be its two-factor trusted number, since Apple allows one number across
+multiple accounts. A separate line only buys SMS, which none of these lanes use.
+This is the version the project was built for, and it's a real afternoon of
+setup. It is not the version you should start with.
 
 ## Getting started
 

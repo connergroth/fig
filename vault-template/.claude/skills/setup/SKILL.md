@@ -42,7 +42,7 @@ whichever case they're in:
   it once, don't sell it, move to step 1.
 - **On Telegram, on a Mac.** Offer iMessage and price it honestly. Tier 0 is
   `brew install steipete/tap/imsg` plus Full Disk Access, and it costs a dedicated
-  Apple ID and phone number for the agent. Tiers 1 and 2 need SIP disabled, which is
+  Apple Account for the agent — no separate phone line, its email is the handle. Tiers 1 and 2 need SIP disabled, which is
   a real reduction in the machine's security posture and belongs only on a machine
   whose whole job is being this agent. `npm run doctor` reports the current tier and
   what the next one needs: walk one tier at a time and prove each one works before

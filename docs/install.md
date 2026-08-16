@@ -19,8 +19,9 @@ the next hour holds.
 
 **Default to Telegram, and say why in one sentence:** it's a bot token, it works on any
 machine, and it gets them to a working agent in minutes. iMessage is what this project
-is for, but it costs a Mac, a dedicated Apple ID, a dedicated phone number, and for the
-rich lanes, disabling SIP. Offer it as the thing to add once the agent is real to them,
+is for, but it costs a Mac, a dedicated Apple Account, and for the rich lanes, disabling
+SIP. (That account needs no phone line of its own — its email is the iMessage handle,
+and a number they already own can be its 2FA trusted number.) Offer it as the thing to add once the agent is real to them,
 not as the price of trying it.
 
 If they say iMessage up front, that's fine — walk `npm run doctor` tier by tier. Just
