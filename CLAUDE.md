@@ -1,10 +1,8 @@
 # CLAUDE.md — conventions for agents working in this repo
 
-> **Installing rather than working on the code?** If there's no `.env` and no vault at
-> `../brain` — the state `npm run doctor` reports as failing essentials — stop and read
-> `docs/install.md`, then drive that. Everything below assumes an installed instance
-> with an owner who already has one, and the off-limits rules exist to protect a live
-> setup; `docs/install.md` says which of them don't apply yet.
+> **No `.env` and no vault at `../brain`?** This is an install, not a code task. Stop
+> and drive `docs/install.md` instead — it says which rules below don't apply yet.
+> Everything after this line assumes an already-installed instance.
 
 `CLAUDE.md` is the exact filename Claude looks for; `AGENTS.md` is the same file
 symlinked for Codex. Both engines therefore read THIS document, and it is loaded on
